@@ -1,0 +1,77 @@
+services:
+  postgres:
+    image: postgres:13
+    restart: always
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:alpine
+    restart: always
+
+  webserver:
+    image: apache/airflow:2.7.2
+    restart: always
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__WEBSERVER__RBAC: "true"
+      AIRFLOW__WEBSERVER__SECRET_KEY: "aghl4zhl45zhl"  # Add this line
+      # Pass Google Cloud variables from the host environment
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+      BIGQUERY_DATASET_ID: ${BIGQUERY_DATASET_ID}
+      BIGQUERY_TABLE_ID: ${BIGQUERY_TABLE_ID}
+      GOOGLE_APPLICATION_CREDENTIALS: /opt/google_credentials/your_credentials.json
+    command: webserver
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./google_credentials:/opt/google_credentials
+
+  scheduler:
+    image: apache/airflow:2.7.2
+    restart: always
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__WEBSERVER__SECRET_KEY: "aghl4zhl45zhl"  # Add this line
+      # Pass Google Cloud variables from the host environment
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+      BIGQUERY_DATASET_ID: ${BIGQUERY_DATASET_ID}
+      BIGQUERY_TABLE_ID: ${BIGQUERY_TABLE_ID}
+      GOOGLE_APPLICATION_CREDENTIALS: /opt/google_credentials/your_credentials.json
+    command: scheduler
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./google_credentials:/opt/google_credentials
+
+  worker:
+    image: apache/airflow:2.7.2
+    restart: always
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__WEBSERVER__SECRET_KEY: "aghl4zhl45zhl"  # Add this line
+      # Pass Google Cloud variables from the host environment
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+      BIGQUERY_DATASET_ID: ${BIGQUERY_DATASET_ID}
+      BIGQUERY_TABLE_ID: ${BIGQUERY_TABLE_ID}
+      GOOGLE_APPLICATION_CREDENTIALS: /opt/google_credentials/your_credentials.json
+    command: celery worker
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./google_credentials:/opt/google_credentials
+
+volumes:
+  postgres_data:
